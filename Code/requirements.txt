@@ -1,4 +1,12 @@
 pandas
 numpy
+scikit-learn
 matplotlib
 scipy
+PyQt5
+h5py
+torch
+torchvision
+tqdm
+joblib
+openpyxl
