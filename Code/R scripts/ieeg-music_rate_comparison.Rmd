@@ -1,0 +1,136 @@
+---
+title: "ieeg-music_rate_comparison"
+output: html_document
+date: "2024-03-08"
+---
+
+```{r setup, include=FALSE}
+#Load Data
+library(openxlsx)
+library(labelled)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(ggpubr)
+spikeData <- read.xlsx("~/Dropbox (Dartmouth College)/ieeg-music/data/trialdata_ieegmusic.xlsx", sheet = 'Main_processed') 
+#spikeData$subject_session <- paste(spikeData$subject, "_r", spikeData$MusicSession)
+```
+
+``` {R}
+#define useful functions
+
+#1. Plot regression model with statstical signficance
+ggplotRegression <- function (fit) {
+require(ggplot2)
+
+ggplot(fit$model, aes_string(x = names(fit$model)[2], y = names(fit$model)[1])) + 
+  geom_point() +
+  stat_smooth(method = "lm", col = "red") +
+  labs(title = paste("Adj R2 = ",signif(summary(fit)$adj.r.squared, 5),
+                     "Intercept =",signif(fit$coef[[1]],5 ),
+                     " Slope =",signif(fit$coef[[2]], 5),
+                     " P =",signif(summary(fit)$coef[2,4], 5))) +
+  #Remove Grid  
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line =   
+  element_line(colour ="black")) +
+  #Change font
+  theme(text = element_text(size = 15),legend.title=element_text(size=15), legend.text=element_text(size=15), axis.text.y = 
+  element_text(size=15, face = "bold"), axis.text.x = element_text(size=15, face= "bold"))
+}
+```
+
+
+```{R}
+#CORRELATION: ACCURACY ~ REACTION TIME
+
+data_corr_acc_spikes <-spikeData[!(is.na(spikeData$Accuracy)), ]
+x <- cor(data_corr_acc_spikes$Accuracy, data_corr_acc_spikes$Rate)
+
+#Regular ggplot
+#plot_corr_acc_spikes <- data_corr_acc_spikes %>% ggplot(aes(Rate,Accuracy)) +
+#  geom_point() +
+#  geom_smooth(alpha=0.3, method="lm") +
+#  #Remove Grid  
+#  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line =   
+#  element_line(colour ="black")) +
+#  #Change font
+#  theme(text = element_text(size = 20),legend.title=element_text(size=15), legend.text=element_text(size=15), axis.text.y = 
+#  element_text(size=20, face = "bold"), axis.text.x = element_text(size=20, face= "bold")) +
+#  xlab('Spike Rate') + ylab('Accuracy') 
+
+#ggpubr
+#http://www.sthda.com/english/articles/24-ggpubr-publication-ready-plots/78-perfect-scatter-plots-with-correlation-and-marginal-histograms/
+plot_corr_acc_spikes <- data_corr_acc_spikes %>% 
+                        ggscatter(x = "Rate", y = "Accuracy", color = "EV",
+                        add = "reg.line",                                 # Add regression line
+                        conf.int = TRUE,                                  # Add confidence interval
+                        add.params = list(color = "blue",fill = "lightgray"))+
+                        stat_cor(method = "pearson", label.y = 1) +  # Add correlation coefficient
+        #Remove Grid  
+        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line =   
+                      element_line(colour ="black")) +
+        #Change font
+        theme(text = element_text(size = 20),legend.title=element_text(size=15), legend.text=element_text(size=15), axis.text.y = 
+                      element_text(size=20, face = "bold"), axis.text.x = element_text(size=20, face= "bold")) +
+                      xlab('Spike Rate') + ylab('Accuracy') 
+
+#Show
+plot_corr_acc_spikes
+```
+```{R}
+reg_acc_spikes <- lm(Accuracy~Rate,data = data_corr_acc_spikes) 
+summary(reg_acc_spikes)
+ggplotRegression(reg_acc_spikes)
+
+
+```
+
+```{R}
+
+
+#PARSE DATA FOR HIE 03/08: Plotting subjects 17 and 22 -- possess a high IED count
+three_subjects <- spikeData[(spikeData$subject == 'mus22') | (spikeData$subject == 'mus17'), ]
+
+```
+
+```{R}
+#PLOT: NON NAN
+three_subjects_no_nan <- three_subjects[ , colSums(is.na(three_subjects))==0] %>%pivot_longer( cols = starts_with("bin"), names_to = "bin") 
+
+#https://tidyr.tidyverse.org/reference/pivot_longer.html
+#YOU GOT TO LOVE THIS FUNCTION
+ggplot(three_subjects_no_nan, aes(x=EV, y=value, fill = as.factor(subject_session)))+
+geom_bar(position="dodge", stat="identity")+
+#Remove Grid 
+theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour =   "black"))+
+#Change font
+theme(text = element_text(size = 20),legend.title=element_text(size=10), legend.text=element_text(size=10),axis.text.y = element_text(size=10, face = "bold"), axis.text.x = element_text(size=10, face= "bold"))+
+coord_flip() +facet_grid('bin')+ ylab('IED rate (Hz)') + xlab('') 
+
+
+```
+
+```{R}
+
+ggplot(three_subjects_no_nan, aes(x=bin, y=value, fill = as.factor(subject_session)))+
+geom_bar(position="dodge", stat="identity")+
+#Remove Grid 
+theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour =   "black"))+
+#Change font
+theme(text = element_text(size = 5),legend.title=element_text(size=10), legend.text=element_text(size=10),axis.text.y = element_text(size=10, face = "bold"), axis.text.x = element_text(size=10, face= "bold"))+
+facet_grid('EV')+ ylab('IED rate (Hz)') + xlab('') 
+
+```
+
+```{R}
+ggplot(three_subjects_no_nan, aes(x=bin, y=value, color = as.factor(subject_session)))+
+geom_point()+geom_line(aes(colour = as.factor(subject_session), group = as.factor(subject_session))) + 
+#Remove Grid 
+theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour =   "black"))+
+#Change font
+theme(text = element_text(size = 20),legend.title=element_text(size=10), legend.text=element_text(size=10),axis.text.y = element_text(size=10, face = "bold"), axis.text.x = element_text(size=10, face= "bold"))+
+facet_wrap('EV',ncol=1)+ ylab('IED rate (Hz)') + xlab('') 
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
